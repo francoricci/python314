@@ -1,6 +1,5 @@
 PORTNAME=	python
 DISTVERSION=	${PYTHON_DISTVERSION}
-PORTREVISION=	1
 CATEGORIES=	lang python
 MASTER_SITES=	PYTHON/ftp/python/${DISTVERSION:C/[a-z].*//}
 PKGNAMESUFFIX=	${PYTHON_BASESUFFIX}${THREADFLAG}
@@ -79,7 +78,7 @@ IPV6_CONFIGURE_ENABLE=	ipv6
 LIBMPDEC_CONFIGURE_ON=	--with-system-libmpdec
 LIBMPDEC_LIB_DEPENDS=	libmpdec.so:math/mpdecimal
 
-LTO_CONFIGURE_ON=	--with-lto=full
+LTO_CONFIGURE_ON=	--enable-optimizations --with-lto=full
 
 TAILCALL_CONFIGURE_ON=	--with-tail-call-interp
 TAILCALL_DESC=	Enable interpreters using tail calls in CPython
