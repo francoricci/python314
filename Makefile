@@ -1,12 +1,11 @@
 PORTNAME=	python
 DISTVERSION=	${PYTHON_DISTVERSION}
+PORTREVISION=	2
 CATEGORIES=	lang python
 MASTER_SITES=	PYTHON/ftp/python/${DISTVERSION:C/[a-z].*//}
 PKGNAMESUFFIX=	${PYTHON_BASESUFFIX}${THREADFLAG}
 DISTNAME=	Python-${DISTVERSION}
 DIST_SUBDIR=	python
-
-PATCH_SITES=	https://github.com/python/cpython/commit/
 
 MAINTAINER=	mandree@FreeBSD.org
 COMMENT=	Interpreted object-oriented programming language
@@ -14,7 +13,8 @@ WWW=		https://www.python.org/
 
 LICENSE=	PSFL
 
-LIB_DEPENDS=	libffi.so:devel/libffi \
+LIB_DEPENDS=	libexpat.so:textproc/expat2 \
+		libffi.so:devel/libffi \
 		libzstd.so:archivers/zstd
 
 USES=		compiler:c11 cpe ncurses pathfix pkgconfig readline \
@@ -29,7 +29,7 @@ SHEBANG_FILES+=	Lib/test/archivetestdata/exe_with_z64 \
 		Lib/test/archivetestdata/header.sh
 
 DISABLED_EXTENSIONS=	 _gdbm _sqlite3 _tkinter
-CONFIGURE_ARGS+=	--enable-shared --without-ensurepip
+CONFIGURE_ARGS+=	--enable-shared --without-ensurepip --with-system-expat
 CONFIGURE_ENV+=		OPT="" # Null out OPT to respect user CFLAGS and remove optimizations
 
 INSTALL_TARGET=		altinstall						# Don't want cloberring of unprefixed files
@@ -59,9 +59,13 @@ OPTIONS_EXCLUDE_powerpc64=	LTO
 OPTIONS_EXCLUDE_riscv64=	LTO
 OPTIONS_RADIO=		HASH
 OPTIONS_RADIO_HASH=	FNV SIPHASH
+OPTIONS_GROUP=		EXPERIMENTAL
+OPTIONS_GROUP_EXPERIMENTAL=	JIT
 OPTIONS_SUB=		yes
 
 LIBMPDEC_DESC=		Use libmpdec from ports instead of bundled version
+LTO_DESC=		Use Link-Time Optimization with -flto=thin
+LTOFULL_DESC=		Use -flto=full (not =thin) (faster build at more CPU time)
 NLS_DESC=		Enable gettext support for the locale module
 PYMALLOC_DESC=		Enable specialized mallocs
 
@@ -83,6 +87,9 @@ LTO_CONFIGURE_ON=	--enable-optimizations --with-lto=full
 TAILCALL_CONFIGURE_ON=	--with-tail-call-interp
 TAILCALL_DESC=	Enable interpreters using tail calls in CPython
 
+JIT_CONFIGURE_ON=	--enable-experimental-jit=yes-off
+JIT_DESC=		Enable just-in-time compiler (disabled by default)
+
 # Use CPPFLAGS over CFLAGS due to -I ordering, causing elementtree and pyexpat
 # to break in Python 2.7, or preprocessor complaints in Python >= 3.3
 # Upstream Issue: https://bugs.python.org/issue6299
@@ -100,6 +107,15 @@ CONFLICTS_INSTALL?=	python314t
 
 .if ${PORT_OPTIONS:MDEBUG}
 ABIFLAGS:=	d${ABIFLAGS}
+.endif
+
+# Python 3.11 or newer is required to build the JIT
+.if ${PORT_OPTIONS:MJIT}
+.  if ${PYTHON_DEFAULT:S/t$//} == 3.14 || ${PYTHON_DEFAULT:S/t$//} < 3.11
+BUILD_DEPENDS+=	python3.12:lang/python312
+.  else
+BUILD_DEPENDS+=	python${PYTHON_DEFAULT}:lang/python${PYTHON_DEFAULT:S/.//g}
+.  endif
 .endif
 
 .if !empty(ABIFLAGS) || !empty(THREADFLAG)
@@ -142,7 +158,6 @@ post-patch:
 # disable the detection of includes and library from e2fsprogs-libuuid,
 # which introduces hidden dependency and breaks build
 	@${REINPLACE_CMD} -e 's|uuid/uuid.h|ignore_&|' ${WRKSRC}/configure
-
 # disable detection of multiarch as it breaks with clang >= 13, which adds a
 # major.minor version number in -print-multiarch output, confusing Python
 	@${REINPLACE_CMD} -e 's|^\( *MULTIARCH=\).*--print-multiarch.*|\1|' ${WRKSRC}/configure
@@ -151,6 +166,8 @@ post-patch:
 .  for _module in ${DISABLED_EXTENSIONS}
 		@${ECHO_CMD} ${_module} >> ${WRKSRC}/Modules/Setup.local
 .  endfor
+# Strip Expat module
+	${RM} -R ${WRKSRC}/Modules/expat
 
 post-install:
 .if ! ${PORT_OPTIONS:MDEBUG}
@@ -192,9 +209,18 @@ sigstore-verify: ${_sigstorebundle} checksum
 
 pre-test:
 	@${ECHO_CMD} "=== NOTE: the py314-* gdbm, sqlite3, tkinter modules must be rebuilt before the test ==="
+.if ${PORT_OPTIONS:MDEBUG}
+	@${ECHO_CMD} "=== NOTE: The test_ssl test is known to fail with DEBUG option enabled ==="
+.endif
+.if empty(PORT_OPTIONS:MIPV6)
+	@${ECHO_CMD} "=== NOTE: Some asynch tests require IPV6 support enabled, expect some test failures ==="
+.endif
+.if empty(PORT_OPTIONS:MPYMALLOC)
+	@${ECHO_CMD} "=== NOTE: Some tests depend on PYMALLOC option enabled, expect some test failures ==="
+.endif
 	sleep 5
 
 post-clean:
-	${RM} ${_sigstorebundle}
+	@${RM} ${_sigstorebundle}
 
 .include <bsd.port.mk>
