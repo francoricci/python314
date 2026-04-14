@@ -64,8 +64,7 @@ OPTIONS_GROUP_EXPERIMENTAL=	JIT
 OPTIONS_SUB=		yes
 
 LIBMPDEC_DESC=		Use libmpdec from ports instead of bundled version
-LTO_DESC=		Use Link-Time Optimization with -flto=thin
-LTOFULL_DESC=		Use -flto=full (not =thin) (faster build at more CPU time)
+LTO_DESC=		Use Link-Time Optimization with -flto=full
 NLS_DESC=		Enable gettext support for the locale module
 PYMALLOC_DESC=		Enable specialized mallocs
 
