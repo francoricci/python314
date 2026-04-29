@@ -1,9 +1,9 @@
 PORTNAME=	python
-DISTVERSION=	${PYTHON_DISTVERSION}  # see Makefile.version
+DISTVERSION=	${PYTHON_DISTVERSION}
 PORTREVISION=	2
 CATEGORIES=	lang python
 MASTER_SITES=	PYTHON/ftp/python/${DISTVERSION:C/[a-z].*//}
-PKGNAMESUFFIX=	${PYTHON_SUFFIX}
+PKGNAMESUFFIX=	${PYTHON_BASESUFFIX}${THREADFLAG}
 DISTNAME=	Python-${DISTVERSION}
 DIST_SUBDIR=	python
 
@@ -18,7 +18,7 @@ LIB_DEPENDS=	libexpat.so:textproc/expat2 \
 		libzstd.so:archivers/zstd
 
 USES=		compiler:c11 cpe ncurses pathfix pkgconfig readline \
-		shebangfix ssl tar:xz
+		python:${PYTHON_DISTVERSION:R},env shebangfix ssl tar:xz
 PATHFIX_MAKEFILEIN=	Makefile.pre.in
 USE_LDCONFIG=	yes
 GNU_CONFIGURE=	yes
@@ -27,11 +27,6 @@ SHEBANG_FILES=	Lib/*.py Lib/*/*.py Lib/*/*/*.py Lib/*/*/*/*.py
 SHEBANG_FILES+=	Lib/test/archivetestdata/exe_with_z64 \
 		Lib/test/archivetestdata/exe_with_zip \
 		Lib/test/archivetestdata/header.sh
-
-# Duplicate python.mk variables. TODO: Let lang/python?? ports use python.mk bits.
-PYTHON_VER=		${PYTHON_DISTVERSION:R}
-PYTHON_VERSION=		python${PYTHON_VER}
-PYTHON_SUFFIX=		${PYTHON_VER:S/.//g}
 
 DISABLED_EXTENSIONS=	 _gdbm _sqlite3 _tkinter
 CONFIGURE_ARGS+=	--enable-shared --without-ensurepip --with-system-expat
@@ -48,25 +43,28 @@ MAKE_ARGS+=		COMPILEALL_OPTS=-j${MAKE_JOBS_NUMBER} \
 			INSTALL_SHARED="${INSTALL_LIB}"				# Strip shared library
 
 SUB_FILES=		pkg-message
-SUB_LIST=		PYTHON_SUFFIX=${PYTHON_SUFFIX}
+SUB_LIST=		PYTHON_SUFFIX=${PYTHON_BASESUFFIX}${THREADFLAG}
 
 PLIST_SUB=		ABI=${ABIFLAGS} \
-			XY=${PYTHON_SUFFIX} \
-			XYDOT=${PYTHON_VER} \
-			XYZDOT=${DISTVERSION:C/[a-z].*//} \
+			THREAD=${THREADFLAG} \
+			PYTHON_BASEINCLUDEDIR=${PYTHONPREFIX_INCLUDEDIR:S;${PREFIX}/;;:S;${PYTHON_VER};${PYTHON_BASEVER};} \
+			PYTHON_BASELIBDIR=${PYTHONPREFIX_LIBDIR:S;${PREFIX}/;;:S;${PYTHON_VER};${PYTHON_BASEVER};} \
+			PYTHON_BASESOABI=${PYTHON_SOABI:S;${PYTHON_SUFFIX};${PYTHON_BASESUFFIX};}${THREADFLAG} \
+			DISTVERSION=${DISTVERSION} \
 			OSMAJOR=${OSVERSION:C/([0-9]*)[0-9]{5}/\1/}		# For plat-freebsd* in pkg-plist. https://bugs.python.org/issue19554
 
-OPTIONS_DEFINE=		DEBUG IPV6 LIBMPDEC LTO NLS PYMALLOC
+OPTIONS_DEFINE=		DEBUG IPV6 LIBMPDEC LTO NLS PYMALLOC TAILCALL
 OPTIONS_DEFAULT=	LIBMPDEC LTO PYMALLOC
 OPTIONS_EXCLUDE_powerpc64=	LTO
 OPTIONS_EXCLUDE_riscv64=	LTO
 OPTIONS_RADIO=		HASH
 OPTIONS_RADIO_HASH=	FNV SIPHASH
+OPTIONS_GROUP=		EXPERIMENTAL
+OPTIONS_GROUP_EXPERIMENTAL=	JIT
 OPTIONS_SUB=		yes
 
 LIBMPDEC_DESC=		Use libmpdec from ports instead of bundled version
-LTO_DESC=		Use Link-Time Optimization with -flto=thin
-LTOFULL_DESC=		Use -flto=full (not =thin) (faster build at more CPU time)
+LTO_DESC=		Use Link-Time Optimization with -flto=full
 NLS_DESC=		Enable gettext support for the locale module
 PYMALLOC_DESC=		Enable specialized mallocs
 
@@ -83,7 +81,13 @@ IPV6_CONFIGURE_ENABLE=	ipv6
 LIBMPDEC_CONFIGURE_ON=	--with-system-libmpdec
 LIBMPDEC_LIB_DEPENDS=	libmpdec.so:math/mpdecimal
 
-LTO_CONFIGURE_ON=	--with-lto=full
+LTO_CONFIGURE_ON=	--enable-optimizations --with-lto=full
+
+TAILCALL_CONFIGURE_ON=	--with-tail-call-interp
+TAILCALL_DESC=	Enable interpreters using tail calls in CPython
+
+JIT_CONFIGURE_ON=	--enable-experimental-jit=yes-off
+JIT_DESC=		Enable just-in-time compiler (disabled by default)
 
 # Use CPPFLAGS over CFLAGS due to -I ordering, causing elementtree and pyexpat
 # to break in Python 2.7, or preprocessor complaints in Python >= 3.3
@@ -95,18 +99,29 @@ NLS_CONFIGURE_ENV_OFF=	ac_cv_lib_intl_textdomain=no ac_cv_header_libintl_h=no
 
 PYMALLOC_CONFIGURE_WITH=	pymalloc
 
-.include "${.CURDIR}/Makefile.version"
+MASTERDIR?=	${.CURDIR}
+CONFLICTS_INSTALL?=	python314t
+.include "${MASTERDIR}/Makefile.version"
 .include <bsd.port.options.mk>
 
 .if ${PORT_OPTIONS:MDEBUG}
 ABIFLAGS:=	d${ABIFLAGS}
 .endif
 
-.if !empty(ABIFLAGS)
-PLIST_FILES+=	bin/python${PYTHON_VER}${ABIFLAGS} \
-		bin/python${PYTHON_VER}${ABIFLAGS}-config \
-		libdata/pkgconfig/python-${PYTHON_VER}${ABIFLAGS}.pc \
-		libdata/pkgconfig/python-${PYTHON_VER}${ABIFLAGS}-embed.pc
+# Python 3.11 or newer is required to build the JIT
+.if ${PORT_OPTIONS:MJIT}
+.  if ${PYTHON_DEFAULT:S/t$//} == 3.14 || ${PYTHON_DEFAULT:S/t$//} < 3.11
+BUILD_DEPENDS+=	python3.12:lang/python312
+.  else
+BUILD_DEPENDS+=	python${PYTHON_DEFAULT}:lang/python${PYTHON_DEFAULT:S/.//g}
+.  endif
+.endif
+
+.if !empty(ABIFLAGS) || !empty(THREADFLAG)
+PLIST_FILES+=	bin/python${PYTHON_BASEVER}${THREADFLAG}${ABIFLAGS} \
+		bin/python${PYTHON_BASEVER}${THREADFLAG}${ABIFLAGS}-config \
+		libdata/pkgconfig/python-${PYTHON_BASEVER}${THREADFLAG}${ABIFLAGS}-embed.pc \
+		libdata/pkgconfig/python-${PYTHON_BASEVER}${THREADFLAG}${ABIFLAGS}.pc
 .endif
 
 .if ${ARCH} == sparc64
@@ -129,6 +144,15 @@ PLIST_SUB+=	SUPPORTED_OPENSSL="@comment "
 PLIST_SUB+=	SUPPORTED_OPENSSL=""
 .endif
 
+.include <bsd.port.pre.mk>
+
+# llvm17 with -flto=thin makes Programs/_freeze_module crash on armv7; workaround
+# cf. https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=276249
+.if ${ARCH} == armv7 && ${CHOSEN_COMPILER_TYPE} == clang && ${COMPILER_VERSION} >= 170 && \
+	${COMPILER_VERSION} < 180
+CONFIGURE_ARGS:=	${CONFIGURE_ARGS:N${LTO_CONFIGURE_ON}}
+.endif
+
 post-patch:
 # disable the detection of includes and library from e2fsprogs-libuuid,
 # which introduces hidden dependency and breaks build
@@ -148,28 +172,28 @@ post-install:
 .if ! ${PORT_OPTIONS:MDEBUG}
 	${RM} ${STAGEDIR}${PREFIX}/lib/libpython3.so						# Upstream Issue: https://bugs.python.org/issue17975
 .endif
-	${LN} -sf libpython${PYTHON_VER}${ABIFLAGS}.so.1.0 ${STAGEDIR}${PREFIX}/lib/libpython${PYTHON_VER}${ABIFLAGS}.so.1
+	${LN} -sf libpython${PYTHON_BASEVER}${THREADFLAG}${ABIFLAGS}.so.1.0 ${STAGEDIR}${PREFIX}/lib/libpython${PYTHON_BASEVER}${THREADFLAG}${ABIFLAGS}.so.1
 # This code block exists for the qemu-user enabled cross build environment.
 # When using this environment in poudriere, CC is not set to the default
 # of /usr/bin/cc and a cross-compile toolchain is used.  We need to hand
 # edit this so that the run time configuration for python matches what the
 # FreeBSD base system provides.  sbruno 02Aug2017
 .if ${CC} == /nxb-bin/usr/bin/cc
-	@${REINPLACE_CMD} -e 's=/nxb-bin==g' \
-		${STAGEDIR}${PREFIX}/lib/python${PYTHON_VER}/_sysconfigdata_${ABIFLAGS}_freebsd_.py
+	@${REINPLACE_CMD} -e 's=/nxb-bin==' \
+		${STAGEDIR}${PREFIX}/lib/python${PYTHON_BASEVER}${THREADFLAG}/_sysconfigdata_${THREADFLAG}${ABIFLAGS}_freebsd${OSREL:R}_.py
 	@cd ${WRKSRC} && ${SETENV} LD_LIBRARY_PATH=${WRKSRC} \
-		./python -E -m compileall -d ${PREFIX}/lib/python${PYTHON_VER} \
-		${STAGEDIR}${PREFIX}/lib/python${PYTHON_VER}/_sysconfigdata_${ABIFLAGS}_freebsd_.py
+		./python -E -m compileall -d ${PREFIX}/lib/python${PYTHON_BASEVER}${THREADFLAG} \
+		${STAGEDIR}${PREFIX}/lib/python${PYTHON_BASEVER}${THREADFLAG}/_sysconfigdata_${THREADFLAG}${ABIFLAGS}_freebsd${OSREL:R}_.py
 	@cd ${WRKSRC} && ${SETENV} LD_LIBRARY_PATH=${WRKSRC} \
-		./python -E -O -m compileall -d ${PREFIX}/lib/python${PYTHON_VER} \
-		${STAGEDIR}${PREFIX}/lib/python${PYTHON_VER}/_sysconfigdata_${ABIFLAGS}_freebsd_.py
-	@${REINPLACE_CMD} -e 's=/nxb-bin==g' \
-		${STAGEDIR}${PREFIX}/lib/python${PYTHON_VER}/config-${PYTHON_VER}${ABIFLAGS}/Makefile
+		./python -E -O -m compileall -d ${PREFIX}/lib/python${PYTHON_BASEVER}${THREADFLAG} \
+		${STAGEDIR}${PREFIX}/lib/python${PYTHON_BASEVER}${THREADFLAG}/_sysconfigdata_${THREADFLAG}${ABIFLAGS}_freebsd${OSREL:R}_.py
+	@${REINPLACE_CMD} -e 's=/nxb-bin==' \
+		${STAGEDIR}${PREFIX}/lib/python${PYTHON_BASEVER}${THREADFLAG}/config-${PYTHON_BASEVER}${ABIFLAGS}/Makefile
 .endif
-	for i in ${STAGEDIR}${PREFIX}/lib/python${PYTHON_VER}/lib-dynload/*.so; do \
+	for i in ${STAGEDIR}${PREFIX}/lib/python${PYTHON_BASEVER}${THREADFLAG}/lib-dynload/*.so; do \
 		${STRIP_CMD} $$i; done								# Strip shared extensions
 	${INSTALL_DATA} ${WRKSRC}/Tools/gdb/libpython.py \
-		${STAGEDIR}${PREFIX}/lib/libpython${PYTHON_VER}${ABIFLAGS}.so.1.0-gdb.py
+		${STAGEDIR}${PREFIX}/lib/libpython${PYTHON_BASEVER}${THREADFLAG}${ABIFLAGS}.so.1.0-gdb.py
 
 _sigstorebundle=${DISTFILES}.sigstore
 ${_sigstorebundle}:
