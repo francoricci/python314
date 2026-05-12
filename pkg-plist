@@ -1848,7 +1848,7 @@ lib/libpython%%PYTHON_BASEVER%%%%THREAD%%%%ABI%%.so.1.0-gdb.py
 %%PYTHON_BASELIBDIR%%%%THREAD%%/ensurepip/__pycache__/_uninstall%%PYTHON_TAG%%.opt-2.pyc
 %%PYTHON_BASELIBDIR%%%%THREAD%%/ensurepip/__pycache__/_uninstall%%PYTHON_TAG%%.pyc
 %%PYTHON_BASELIBDIR%%%%THREAD%%/ensurepip/_uninstall.py
-%%PYTHON_BASELIBDIR%%%%THREAD%%/ensurepip/_bundled/pip-26.0.1-py3-none-any.whl
+%%PYTHON_BASELIBDIR%%%%THREAD%%/ensurepip/_bundled/pip-26.1.1-py3-none-any.whl
 %%PYTHON_BASELIBDIR%%%%THREAD%%/enum.py
 %%PYTHON_BASELIBDIR%%%%THREAD%%/filecmp.py
 %%PYTHON_BASELIBDIR%%%%THREAD%%/fileinput.py
@@ -2903,9 +2903,6 @@ lib/libpython%%PYTHON_BASEVER%%%%THREAD%%%%ABI%%.so.1.0-gdb.py
 %%PYTHON_BASELIBDIR%%%%THREAD%%/test/__pycache__/_test_embed_structseq%%PYTHON_TAG%%.opt-1.pyc
 %%PYTHON_BASELIBDIR%%%%THREAD%%/test/__pycache__/_test_embed_structseq%%PYTHON_TAG%%.opt-2.pyc
 %%PYTHON_BASELIBDIR%%%%THREAD%%/test/__pycache__/_test_embed_structseq%%PYTHON_TAG%%.pyc
-%%PYTHON_BASELIBDIR%%%%THREAD%%/test/__pycache__/_test_gc_fast_cycles%%PYTHON_TAG%%.opt-1.pyc
-%%PYTHON_BASELIBDIR%%%%THREAD%%/test/__pycache__/_test_gc_fast_cycles%%PYTHON_TAG%%.opt-2.pyc
-%%PYTHON_BASELIBDIR%%%%THREAD%%/test/__pycache__/_test_gc_fast_cycles%%PYTHON_TAG%%.pyc
 %%PYTHON_BASELIBDIR%%%%THREAD%%/test/__pycache__/_test_monitoring_shutdown%%PYTHON_TAG%%.opt-1.pyc
 %%PYTHON_BASELIBDIR%%%%THREAD%%/test/__pycache__/_test_monitoring_shutdown%%PYTHON_TAG%%.opt-2.pyc
 %%PYTHON_BASELIBDIR%%%%THREAD%%/test/__pycache__/_test_monitoring_shutdown%%PYTHON_TAG%%.pyc
@@ -4234,10 +4231,10 @@ lib/libpython%%PYTHON_BASEVER%%%%THREAD%%%%ABI%%.so.1.0-gdb.py
 %%PYTHON_BASELIBDIR%%%%THREAD%%/test/_test_atexit.py
 %%PYTHON_BASELIBDIR%%%%THREAD%%/test/_test_eintr.py
 %%PYTHON_BASELIBDIR%%%%THREAD%%/test/_test_embed_structseq.py
-%%PYTHON_BASELIBDIR%%%%THREAD%%/test/_test_gc_fast_cycles.py
 %%PYTHON_BASELIBDIR%%%%THREAD%%/test/_test_monitoring_shutdown.py
 %%PYTHON_BASELIBDIR%%%%THREAD%%/test/_test_multiprocessing.py
 %%PYTHON_BASELIBDIR%%%%THREAD%%/test/_test_venv_multiprocessing.py
+%%PYTHON_BASELIBDIR%%%%THREAD%%/test/test_json/json_lines.jsonl
 %%PYTHON_BASELIBDIR%%%%THREAD%%/test/archiver_tests.py
 %%PYTHON_BASELIBDIR%%%%THREAD%%/test/archivetestdata/README.md
 %%PYTHON_BASELIBDIR%%%%THREAD%%/test/archivetestdata/__pycache__/testdata_module_inside_zip%%PYTHON_TAG%%.opt-1.pyc
