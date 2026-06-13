@@ -1,13 +1,14 @@
 PORTNAME=	python
-DISTVERSION=	${PYTHON_DISTVERSION}  # see Makefile.version
-PORTREVISION=	1
+DISTVERSION=	${PYTHON_DISTVERSION}
 CATEGORIES=	lang python
 MASTER_SITES=	PYTHON/ftp/python/${DISTVERSION:C/[a-z].*//}
 PKGNAMESUFFIX=	${PYTHON_BASESUFFIX}${THREADFLAG}
 DISTNAME=	Python-${DISTVERSION}
 DIST_SUBDIR=	python
 
-MAINTAINER=	mandree@FreeBSD.org
+PATCH_SITES=	https://github.com/python/cpython/commit/
+
+MAINTAINER=	python@FreeBSD.org
 COMMENT=	Interpreted object-oriented programming language
 WWW=		https://www.python.org/
 
@@ -16,28 +17,27 @@ LICENSE=	PSFL
 LIB_DEPENDS=	libexpat.so:textproc/expat2 \
 		libffi.so:devel/libffi \
 		libzstd.so:archivers/zstd
+TEST_DEPENDS=	gdb:devel/gdb
 
-USES=		compiler:c11 cpe ncurses pathfix pkgconfig readline \
-		python:${PYTHON_DISTVERSION:R},env shebangfix ssl tar:xz
+USES=		compiler:c11 cpe ncurses pathfix pkgconfig \
+		python:${PYTHON_DISTVERSION:R},env readline shebangfix ssl tar:xz
 PATHFIX_MAKEFILEIN=	Makefile.pre.in
 USE_LDCONFIG=	yes
 GNU_CONFIGURE=	yes
 python_CMD=	${PREFIX}/bin/python${PYTHON_DISTVERSION:R}
-SHEBANG_FILES=	Lib/*.py Lib/*/*.py Lib/*/*/*.py Lib/*/*/*/*.py
-SHEBANG_FILES+=	Lib/test/archivetestdata/exe_with_z64 \
+SHEBANG_GLOB=	*.py*
+SHEBANG_FILES=	Lib/test/archivetestdata/exe_with_z64 \
 		Lib/test/archivetestdata/exe_with_zip \
 		Lib/test/archivetestdata/header.sh
 
-DISABLED_EXTENSIONS=	 _gdbm _sqlite3 _tkinter
+DISABLED_EXTENSIONS=	_sqlite3 _tkinter _gdbm
 CONFIGURE_ARGS+=	--enable-shared --without-ensurepip --with-system-expat
 CONFIGURE_ENV+=		OPT="" # Null out OPT to respect user CFLAGS and remove optimizations
 
-INSTALL_TARGET=		altinstall						# Don't want cloberring of unprefixed files
+INSTALL_TARGET=		altinstall					# Don't want cloberring of unprefixed files
 
-# TEST_TARGET=		buildbottest # that's the --slow-ci with more resources/longer timeouts
-TEST_TARGET=		test # that's the --fast-ci with tighter timeouts and using less resources
-# TEST_ARGS: test_gdb requires debug symbols for the test_gdb.test_pretty_print test, so skip it unless defined(WITH_DEBUG)
-TEST_ARGS=		TESTOPTS="-j${MAKE_JOBS_NUMBER} ${WITH_DEBUG:U-x test_gdb}"
+TEST_TARGET=		test
+TEST_ARGS=		TESTOPTS=-j${MAKE_JOBS_NUMBER}
 
 MAKE_ARGS+=		COMPILEALL_OPTS=-j${MAKE_JOBS_NUMBER} \
 			INSTALL_SHARED="${INSTALL_LIB}"				# Strip shared library
@@ -53,9 +53,8 @@ PLIST_SUB=		ABI=${ABIFLAGS} \
 			DISTVERSION=${DISTVERSION} \
 			OSMAJOR=${OSVERSION:C/([0-9]*)[0-9]{5}/\1/}		# For plat-freebsd* in pkg-plist. https://bugs.python.org/issue19554
 
-OPTIONS_DEFINE=		DEBUG IPV6 LIBMPDEC LTO NLS PYMALLOC TAILCALL
+OPTIONS_DEFINE=		DEBUG IPV6 LIBMPDEC LTO NLS PYMALLOC
 OPTIONS_DEFAULT=	LIBMPDEC LTO PYMALLOC
-OPTIONS_EXCLUDE_powerpc64=	LTO
 OPTIONS_EXCLUDE_riscv64=	LTO
 OPTIONS_RADIO=		HASH
 OPTIONS_RADIO_HASH=	FNV SIPHASH
@@ -64,7 +63,6 @@ OPTIONS_GROUP_EXPERIMENTAL=	JIT
 OPTIONS_SUB=		yes
 
 LIBMPDEC_DESC=		Use libmpdec from ports instead of bundled version
-LTO_DESC=		Use Link-Time Optimization with -flto=full
 NLS_DESC=		Enable gettext support for the locale module
 PYMALLOC_DESC=		Enable specialized mallocs
 
@@ -72,8 +70,13 @@ HASH_DESC=		Hash Algorithm (PEP-456)
 FNV_DESC=		Modified Fowler-Noll-Vo Algorithm
 SIPHASH_DESC=		SipHash24 Algorithm
 
+EXPERIMENTAL_DESC=	Experimental features
+JIT_DESC=		Enable just-in-time compiler
+
 FNV_CONFIGURE_ON=	--with-hash-algorithm=fnv
 SIPHASH_CONFIGURE_ON=	--with-hash-algorithm=siphash24
+
+JIT_CONFIGURE_ENABLE=	experimental-jit
 
 DEBUG_CONFIGURE_WITH=	pydebug
 IPV6_CONFIGURE_ENABLE=	ipv6
@@ -81,13 +84,7 @@ IPV6_CONFIGURE_ENABLE=	ipv6
 LIBMPDEC_CONFIGURE_ON=	--with-system-libmpdec
 LIBMPDEC_LIB_DEPENDS=	libmpdec.so:math/mpdecimal
 
-LTO_CONFIGURE_ON=	--enable-optimizations --with-lto=full
-
-TAILCALL_CONFIGURE_ON=	--with-tail-call-interp
-TAILCALL_DESC=	Enable interpreters using tail calls in CPython
-
-JIT_CONFIGURE_ON=	--enable-experimental-jit=yes-off
-JIT_DESC=		Enable just-in-time compiler (disabled by default)
+LTO_CONFIGURE_ON=	--with-lto
 
 # Use CPPFLAGS over CFLAGS due to -I ordering, causing elementtree and pyexpat
 # to break in Python 2.7, or preprocessor complaints in Python >= 3.3
@@ -110,8 +107,12 @@ ABIFLAGS:=	d${ABIFLAGS}
 
 # Python 3.11 or newer is required to build the JIT
 .if ${PORT_OPTIONS:MJIT}
-.  if ${PYTHON_DEFAULT:S/t$//} == 3.14 || ${PYTHON_DEFAULT:S/t$//} < 3.11
-BUILD_DEPENDS+=	python3.12:lang/python312
+.  if ${PYTHON_DEFAULT:S/t$//} >= 3.14 || ${PYTHON_DEFAULT:S/t$//} < 3.11
+.    if ${PYTHON_DEFAULT} == ${PYTHON_DEFAULT:S/t$//}t
+BUILD_DEPENDS+=	python3.13t:lang/python313t
+.    else
+BUILD_DEPENDS+=	python3.13:lang/python313
+.    endif
 .  else
 BUILD_DEPENDS+=	python${PYTHON_DEFAULT}:lang/python${PYTHON_DEFAULT:S/.//g}
 .  endif
@@ -124,10 +125,6 @@ PLIST_FILES+=	bin/python${PYTHON_BASEVER}${THREADFLAG}${ABIFLAGS} \
 		libdata/pkgconfig/python-${PYTHON_BASEVER}${THREADFLAG}${ABIFLAGS}.pc
 .endif
 
-.if ${ARCH} == sparc64
-CFLAGS+=	-DPYTHON_DEFAULT_RECURSION_LIMIT=900
-.endif
-
 # See https://bugs.freebsd.org/115940 and https://bugs.freebsd.org/193650
 .if !exists(/usr/bin/ypcat) || defined(WITHOUT_NIS)
 PLIST_SUB+=	NO_NIS="@comment "
@@ -136,27 +133,16 @@ DISABLED_EXTENSIONS+=	nis
 PLIST_SUB+=	NO_NIS=""
 .endif
 
-# Python 3.10 requires OpenSSL >= 1.1.1 (PEP 644), so with
-# libressl, some modules are not built
 .if ${SSL_DEFAULT:Mlibressl*}
-PLIST_SUB+=	SUPPORTED_OPENSSL="@comment "
-.else
-PLIST_SUB+=	SUPPORTED_OPENSSL=""
-.endif
-
-.include <bsd.port.pre.mk>
-
-# llvm17 with -flto=thin makes Programs/_freeze_module crash on armv7; workaround
-# cf. https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=276249
-.if ${ARCH} == armv7 && ${CHOSEN_COMPILER_TYPE} == clang && ${COMPILER_VERSION} >= 170 && \
-	${COMPILER_VERSION} < 180
-CONFIGURE_ARGS:=	${CONFIGURE_ARGS:N${LTO_CONFIGURE_ON}}
+EXTRA_PATCHES+=	${PATCHDIR}/libressl
+CONFIGURE_ENV+=	ac_cv_working_openssl_hashlib=yes
 .endif
 
 post-patch:
-# disable the detection of includes and library from e2fsprogs-libuuid,
+# disable the detection of includes and library from libuuid,
 # which introduces hidden dependency and breaks build
 	@${REINPLACE_CMD} -e 's|uuid/uuid.h|ignore_&|' ${WRKSRC}/configure
+
 # disable detection of multiarch as it breaks with clang >= 13, which adds a
 # major.minor version number in -print-multiarch output, confusing Python
 	@${REINPLACE_CMD} -e 's|^\( *MULTIARCH=\).*--print-multiarch.*|\1|' ${WRKSRC}/configure
@@ -165,8 +151,6 @@ post-patch:
 .  for _module in ${DISABLED_EXTENSIONS}
 		@${ECHO_CMD} ${_module} >> ${WRKSRC}/Modules/Setup.local
 .  endfor
-# Strip Expat module
-	${RM} -R ${WRKSRC}/Modules/expat
 
 post-install:
 .if ! ${PORT_OPTIONS:MDEBUG}
@@ -194,32 +178,5 @@ post-install:
 		${STRIP_CMD} $$i; done								# Strip shared extensions
 	${INSTALL_DATA} ${WRKSRC}/Tools/gdb/libpython.py \
 		${STAGEDIR}${PREFIX}/lib/libpython${PYTHON_BASEVER}${THREADFLAG}${ABIFLAGS}.so.1.0-gdb.py
-
-_sigstorebundle=${DISTFILES}.sigstore
-${_sigstorebundle}:
-	${FETCH_CMD} ${MASTER_SITES}/${_sigstorebundle}
-
-sigstore-verify: ${_sigstorebundle} checksum
-	sigstore verify identity \
-		--bundle ${DISTFILES}.sigstore \
-		--cert-identity hugo@python.org \
-		--cert-oidc-issuer https://github.com/login/oauth \
-		${DISTDIR}/${DIST_SUBDIR}/${DISTFILES}
-
-pre-test:
-	@${ECHO_CMD} "=== NOTE: the py314-* gdbm, sqlite3, tkinter modules must be rebuilt before the test ==="
-.if ${PORT_OPTIONS:MDEBUG}
-	@${ECHO_CMD} "=== NOTE: The test_ssl test is known to fail with DEBUG option enabled ==="
-.endif
-.if empty(PORT_OPTIONS:MIPV6)
-	@${ECHO_CMD} "=== NOTE: Some asynch tests require IPV6 support enabled, expect some test failures ==="
-.endif
-.if empty(PORT_OPTIONS:MPYMALLOC)
-	@${ECHO_CMD} "=== NOTE: Some tests depend on PYMALLOC option enabled, expect some test failures ==="
-.endif
-	sleep 5
-
-post-clean:
-	@${RM} ${_sigstorebundle}
 
 .include <bsd.port.mk>
