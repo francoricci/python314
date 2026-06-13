@@ -84,7 +84,7 @@ IPV6_CONFIGURE_ENABLE=	ipv6
 LIBMPDEC_CONFIGURE_ON=	--with-system-libmpdec
 LIBMPDEC_LIB_DEPENDS=	libmpdec.so:math/mpdecimal
 
-LTO_CONFIGURE_ON=	--with-lto
+LTO_CONFIGURE_ON=	--enable-optimizations --with-lto=full
 
 # Use CPPFLAGS over CFLAGS due to -I ordering, causing elementtree and pyexpat
 # to break in Python 2.7, or preprocessor complaints in Python >= 3.3
