@@ -53,7 +53,7 @@ PLIST_SUB=		ABI=${ABIFLAGS} \
 			DISTVERSION=${DISTVERSION} \
 			OSMAJOR=${OSVERSION:C/([0-9]*)[0-9]{5}/\1/}		# For plat-freebsd* in pkg-plist. https://bugs.python.org/issue19554
 
-OPTIONS_DEFINE=		DEBUG IPV6 LIBMPDEC LTO NLS PYMALLOC TAILCAL
+OPTIONS_DEFINE=		DEBUG IPV6 LIBMPDEC LTO NLS PYMALLOC TAILCALL
 OPTIONS_DEFAULT=	LIBMPDEC LTO PYMALLOC
 OPTIONS_EXCLUDE_riscv64=	LTO
 OPTIONS_RADIO=		HASH
@@ -65,6 +65,7 @@ OPTIONS_SUB=		yes
 LIBMPDEC_DESC=		Use libmpdec from ports instead of bundled version
 NLS_DESC=		Enable gettext support for the locale module
 PYMALLOC_DESC=		Enable specialized mallocs
+TAILCALL_DESC=          Enable interpreters using tail calls in CPython
 
 HASH_DESC=		Hash Algorithm (PEP-456)
 FNV_DESC=		Modified Fowler-Noll-Vo Algorithm
@@ -86,8 +87,7 @@ LIBMPDEC_LIB_DEPENDS=	libmpdec.so:math/mpdecimal
 
 LTO_CONFIGURE_ON=	--enable-optimizations --with-lto=full
 
-TAILCALL_CONFIGURE_ON=	--with-tail-call-interp
-TAILCALL_DESC=	Enable interpreters using tail calls in CPython
+TAILCALL_CONFIGURE_ON=  --with-tail-call-interp
 
 # Use CPPFLAGS over CFLAGS due to -I ordering, causing elementtree and pyexpat
 # to break in Python 2.7, or preprocessor complaints in Python >= 3.3
